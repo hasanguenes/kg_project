@@ -18,22 +18,22 @@ RESULTS_DIR = os.path.join(SCRIPT_DIR, "results")
 EX = Namespace("http://vienna-realestate.org/kg/")
 
 # Find the latest PyKEEN run directory
-valid_dirs = [d for d in glob.glob(os.path.join(RESULTS_DIR, "run_*")) 
-              if os.path.exists(os.path.join(d, "trained_model.pkl"))]
-LATEST_RUN_DIR = max(valid_dirs, key=os.path.getctime)
+# valid_dirs = [d for d in glob.glob(os.path.join(RESULTS_DIR, "run_*")) 
+#               if os.path.exists(os.path.join(d, "trained_model.pkl"))]
+# RUN_DIR = max(valid_dirs, key=os.path.getctime)
 
 
 MANUAL_RUN_NAME = "run_20261007_070839_RotatE_dim128"
-LATEST_RUN_DIR = os.path.join(RESULTS_DIR, MANUAL_RUN_NAME)
-print(f"Loading KGE model from: {os.path.basename(LATEST_RUN_DIR)}")
+RUN_DIR = os.path.join(RESULTS_DIR, MANUAL_RUN_NAME)
+print(f"Loading KGE model from: {os.path.basename(RUN_DIR)}")
 
 # Load Knowledge Graph & PyKEEN Model
 g = Graph()
 g.parse(KG_PATH, format="turtle")
-model = torch.load(os.path.join(LATEST_RUN_DIR, "trained_model.pkl"), weights_only=False)
+model = torch.load(os.path.join(RUN_DIR, "trained_model.pkl"), weights_only=False)
 
 entity_to_id = {}
-with gzip.open(os.path.join(LATEST_RUN_DIR, "training_triples", "entity_to_id.tsv.gz"), "rt", encoding="utf-8") as f:
+with gzip.open(os.path.join(RUN_DIR, "training_triples", "entity_to_id.tsv.gz"), "rt", encoding="utf-8") as f:
     next(f)
     for line in f:
         e_id, e_uri = line.strip().split("\t")
@@ -69,6 +69,6 @@ print(f" - MAE: {mean_absolute_error(y_test, preds_test):.2f} EUR")
 print(f" - R2 Score: {r2_score(y_test, preds_test):.4f}")
 
 # Save the regressor model inside the run directory
-model_output_path = os.path.join(LATEST_RUN_DIR, "price_regressor.pkl")
+model_output_path = os.path.join(RUN_DIR, "price_regressor_.pkl")
 joblib.dump(regressor, model_output_path)
 print(f"\nRegressor successfully saved to:\n{model_output_path}")

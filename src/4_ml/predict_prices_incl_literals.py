@@ -1,3 +1,11 @@
+"""
+Price Regression and Deal Detector Pipeline.
+This script combines the structural Knowledge Graph Embeddings (KGE) trained by PyKEEN 
+with explicitly filtered numerical attributes (size, rooms, travel times) using an 
+"Extended Late Fusion" approach. It trains a Random Forest Regressor to predict flat 
+prices and identifies undervalued properties ("Good Deals") for a map visualization.
+"""
+
 import os
 import glob
 import json
@@ -14,7 +22,9 @@ from sklearn.metrics import (
     mean_absolute_percentage_error
 )
 
-# --- Path Definitions ---
+# ==============================================================================
+# Path Definitions & Setup
+# ==============================================================================
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, "..", ".."))
 
@@ -24,37 +34,58 @@ RESULTS_DIR = os.path.join(SCRIPT_DIR, "results")
 
 EX = Namespace("http://vienna-realestate.org/kg/")
 
+# ==============================================================================
 # 1. Automatically find the latest valid PyKEEN run directory
+# ==============================================================================
+# Instead of hardcoding the model path, this scans the results directory 
+# for the most recently completed training run to ensure we always use the latest model.
 valid_dirs = []
 run_folders = glob.glob(os.path.join(RESULTS_DIR, "run_*"))
 
 for d in run_folders:
+    # A valid directory must contain both the trained PyTorch model and the TSV mapping file
     if os.path.exists(os.path.join(d, "trained_model.pkl")) and os.path.exists(os.path.join(d, "training_triples", "entity_to_id.tsv.gz")):
         valid_dirs.append(d)
 
 if not valid_dirs:
     raise FileNotFoundError("No valid PyKEEN model found in any results directory!")
 
+# Select the directory with the newest creation timestamp
 LATEST_RUN_DIR = max(valid_dirs, key=os.path.getctime)
 print(f"Loading filtered KGE model from: {os.path.basename(LATEST_RUN_DIR)}")
 
+
+# ==============================================================================
 # 2. Load Knowledge Graph for attribute extraction
+# ==============================================================================
+# We load the base KG again. While PyKEEN only learned the *structure* (topology), 
+# we now need to fetch the literal values (prices, square meters) that we intentionally 
+# hid from PyKEEN during the embedding training.
 print("Loading Knowledge Graph for price and transit attribute extraction...")
 g = Graph()
 g.parse(KG_PATH, format="turtle")
 
+
+# ==============================================================================
 # 3. Load PyKEEN Model & Entity Mappings
+# ==============================================================================
+# Load the pre-trained KGE model into memory
 model = torch.load(os.path.join(LATEST_RUN_DIR, "trained_model.pkl"), weights_only=False)
 entity_to_id = {}
 mapping_path = os.path.join(LATEST_RUN_DIR, "training_triples", "entity_to_id.tsv.gz")
 
+# Parse the gzipped TSV file to map our RDF URIs (e.g., 'http://.../flat_123') 
+# back to the internal integer IDs (e.g., 42) used by PyTorch.
 with gzip.open(mapping_path, "rt", encoding="utf-8") as f:
-    next(f)  # Skip header
+    next(f)  # Skip header row
     for line in f:
         e_id, e_uri = line.strip().split("\t")
         entity_to_id[e_uri] = int(e_id)
 
+
+# ==============================================================================
 # 4. Build Features (X) with Extended Late Fusion and Target (y)
+# ==============================================================================
 X_vectors = []
 y_prices = []
 flat_data = []
@@ -62,6 +93,8 @@ flat_data = []
 flats = list(g.subjects(RDF.type, EX.Flat))
 for flat_uri in flats:
     flat_str = str(flat_uri)
+    
+    # Extract baseline literals
     price_literal = g.value(flat_uri, EX.hasPrice)
     lat_literal = g.value(flat_uri, EX.latitude)
     lon_literal = g.value(flat_uri, EX.longitude)
@@ -73,27 +106,40 @@ for flat_uri in flats:
     time_edu_lit = g.value(flat_uri, EX.timeToEducationHubMinutes)
     time_main_lit = g.value(flat_uri, EX.timeToMainStationMinutes)
     
+    # Only process flats that have a known price and were part of the embedding training
     if price_literal and flat_str in entity_to_id:
         actual_price = float(price_literal)
         e_id = entity_to_id[flat_str]
         
-        # Extract structural vector from the filtered model
+        # Extract structural topological vector from the filtered KGE model
         vector = model.entity_representations[0](torch.tensor([e_id], device=model.device)).detach().cpu().numpy()[0]
         
-        # RotatE Fix: Split complex numbers for Scikit-Learn
+        # ----------------------------------------------------------------------
+        # RotatE Fix: Handling Complex Numbers for Scikit-Learn
+        # ----------------------------------------------------------------------
+        # Scikit-Learn's Random Forest cannot process complex numbers (a + bi). 
+        # Since RotatE outputs complex embeddings, we must transform an N-dimensional 
+        # complex vector into a 2N-dimensional real vector by concatenating the 
+        # real parts and the imaginary parts side-by-side.
         if np.iscomplexobj(vector):
             vector_real = np.concatenate([vector.real, vector.imag])
         else:
             vector_real = vector
             
-        # Safely parse all numeric literals into Python floats
+        # Safely parse all numeric literals into Python floats, defaulting to 0.0 if missing
         size_val = float(flat_size_literal) if flat_size_literal else 0.0
         rooms_val = float(flat_rooms_literal) if flat_rooms_literal else 0.0
         center_val = float(time_center_lit) if time_center_lit else 0.0
         edu_val = float(time_edu_lit) if time_edu_lit else 0.0
         main_val = float(time_main_lit) if time_main_lit else 0.0
 
-        # Extended Late Fusion: Structural Vector + Size + Rooms + 3 Travel Times
+        # ----------------------------------------------------------------------
+        # Extended Late Fusion
+        # ----------------------------------------------------------------------
+        # We concatenate the learned structural graph representation (`vector_real`) 
+        # with explicit, human-readable numerical features. This gives the Random Forest 
+        # both topological context (e.g., "is near highly connected hubs") and 
+        # hard facts (e.g., "is 75 square meters large").
         combined_features = np.append(
             vector_real, 
             [size_val, rooms_val, center_val, edu_val, main_val]
@@ -102,6 +148,7 @@ for flat_uri in flats:
         X_vectors.append(combined_features)
         y_prices.append(actual_price)
         
+        # Save metadata for the frontend map export later
         flat_data.append({
             "uri": flat_str,
             "lat": float(lat_literal) if lat_literal else None,
@@ -109,6 +156,7 @@ for flat_uri in flats:
             "actual_price": actual_price
         })
 
+# Convert lists to NumPy arrays for Scikit-Learn processing
 X = np.array(X_vectors)
 y = np.array(y_prices)
 
@@ -122,20 +170,31 @@ print(f"Max Price: {np.max(y):.2f} EUR")
 print(f"Standard Deviation: {np.std(y):.2f} EUR")
 print("--------------------------\n")
 
+
+# ==============================================================================
 # 5. Train/Test Split (80% Train, 20% Test)
+# ==============================================================================
 X_train, X_test, y_train, y_test, data_train, data_test = train_test_split(
     X, y, flat_data, test_size=0.2, random_state=42
 )
 
+
+# ==============================================================================
 # 6. Train Random Forest Regressor
+# ==============================================================================
+# Train an ensemble of 100 decision trees to predict the price based on the fused features
 print("Training Random Forest Regressor (with Extended Late Fusion)...")
 regressor = RandomForestRegressor(n_estimators=100, random_state=42)
 regressor.fit(X_train, y_train)
 
+
+# ==============================================================================
 # 7. Evaluate on Unseen Data
+# ==============================================================================
 predictions_test = regressor.predict(X_test)
 predictions_train = regressor.predict(X_train)
 
+# Calculate standard regression metrics
 mae = mean_absolute_error(y_test, predictions_test)
 rmse = np.sqrt(mean_squared_error(y_test, predictions_test))
 mape = mean_absolute_percentage_error(y_test, predictions_test) * 100
@@ -147,12 +206,23 @@ print(f"Root Mean Squared Error (RMSE): {rmse:.2f} EUR")
 print(f"Mean Abs. Percentage Error (MAPE): {mape:.2f} %")
 print(f"R2 Score (Explained Variance): {r2:.4f}")
 
+
+# ==============================================================================
 # 8. Generate Map Export (Deal Detector Service)
+# ==============================================================================
 map_export = []
 
 def process_flats(data_subset, predictions, status_label):
+    """
+    Helper function to merge actual prices, predicted prices, and metadata.
+    Identifies "Good Deals" and prepares the JSON payload for frontend mapping.
+    """
     for i, flat in enumerate(data_subset):
         pred_price = round(predictions[i], 2)
+        
+        # A property is considered a "good deal" if its market listing price (actual) 
+        # is lower than what our AI model predicts it should be worth based on its 
+        # size, location, and structural graph connectivity.
         is_good_deal = bool(flat["actual_price"] < pred_price)
         
         flat["predicted_price"] = pred_price
@@ -160,9 +230,11 @@ def process_flats(data_subset, predictions, status_label):
         flat["status"] = status_label
         map_export.append(flat)
 
+# Process both test (unseen) and training (seen) data for the visualization
 process_flats(data_test, predictions_test, "unseen_test_data")
 process_flats(data_train, predictions_train, "seen_training_data")
 
+# Export to a structured JSON file consumed by a frontend/map application
 with open(OUTPUT_JSON, "w", encoding="utf-8") as f:
     json.dump(map_export, f, indent=4)
 
