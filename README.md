@@ -94,7 +94,7 @@ pip install -r requirements.txt
 Parses GTFS transit data and raw flat JSON, calculates spatial distances, and builds the initial RDF graph.
 
 ```
-python src/2_construction/build_kg.py
+python src/2_construction/build_graph.py
 ```
 
 ### 4.2 Execute Logical Reasoning
