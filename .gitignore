@@ -65,3 +65,4 @@ models/
 *.pth
 logs/
 *.gz
+results/
