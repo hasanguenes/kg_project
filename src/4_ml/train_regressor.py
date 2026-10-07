@@ -18,13 +18,14 @@ RESULTS_DIR = os.path.join(SCRIPT_DIR, "results")
 EX = Namespace("http://vienna-realestate.org/kg/")
 
 # Find the latest PyKEEN run directory
-# valid_dirs = [d for d in glob.glob(os.path.join(RESULTS_DIR, "run_*")) 
-#               if os.path.exists(os.path.join(d, "trained_model.pkl"))]
-# RUN_DIR = max(valid_dirs, key=os.path.getctime)
+valid_dirs = [d for d in glob.glob(os.path.join(RESULTS_DIR, "run_*")) 
+              if os.path.exists(os.path.join(d, "trained_model.pkl"))]
+RUN_DIR = max(valid_dirs, key=os.path.getctime)
 
 
-MANUAL_RUN_NAME = "run_20261007_070839_RotatE_dim128"
-RUN_DIR = os.path.join(RESULTS_DIR, MANUAL_RUN_NAME)
+# MANUAL_RUN_NAME = "run_20261007_070839_RotatE_dim128"
+# RUN_DIR = os.path.join(RESULTS_DIR, MANUAL_RUN_NAME)
+
 print(f"Loading KGE model from: {os.path.basename(RUN_DIR)}")
 
 # Load Knowledge Graph & PyKEEN Model

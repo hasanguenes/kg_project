@@ -34,25 +34,27 @@ EX = Namespace("http://vienna-realestate.org/kg/")
 # ==============================================================================
 # 1. Locate the latest valid PyKEEN run directory
 # ==============================================================================
-# # Dynamically scan the results directory for completed training runs
-# valid_dirs = [d for d in glob.glob(os.path.join(RESULTS_DIR, "run_*")) 
-#               if os.path.exists(os.path.join(d, "trained_model.pkl"))]
+# Dynamically scan the results directory for completed training runs
+valid_dirs = [d for d in glob.glob(os.path.join(RESULTS_DIR, "run_*")) 
+              if os.path.exists(os.path.join(d, "trained_model.pkl"))]
 
-# if not valid_dirs:
-#     raise FileNotFoundError("No valid run directory with trained_model.pkl found in results!")
+if not valid_dirs:
+    raise FileNotFoundError("No valid run directory with trained_model.pkl found in results!")
 
-MANUAL_RUN_NAME = "run_20261007_070839_RotatE_dim128"
-RUN_DIR = os.path.join(RESULTS_DIR, MANUAL_RUN_NAME)
-OUTPUT_FILE = os.path.join(RUN_DIR, "tp_fp_evaluation.txt")
+# MANUAL_RUN_NAME = "run_20261007_070839_RotatE_dim128"
+# LATEST_RUN_DIR = os.path.join(RESULTS_DIR, MANUAL_RUN_NAME)
 
-print(f"Analyzing run: {os.path.basename(RUN_DIR)}")
+LATEST_RUN_DIR = max(valid_dirs, key=os.path.getctime)
+OUTPUT_FILE = os.path.join(LATEST_RUN_DIR, "tp_fp_evaluation.txt")
+
+print(f"Analyzing run: {os.path.basename(LATEST_RUN_DIR)}")
 
 
 # ==============================================================================
 # 2. Load Trained KGE Model & Base Knowledge Graph
 # ==============================================================================
 # Load the PyTorch KGE model into memory
-model = torch.load(os.path.join(RUN_DIR, "trained_model.pkl"), weights_only=False)
+model = torch.load(os.path.join(LATEST_RUN_DIR, "trained_model.pkl"), weights_only=False)
 
 print("Loading Knowledge Graph...")
 g = Graph()
@@ -65,14 +67,14 @@ g.parse(KG_PATH, format="turtle")
 # PyKEEN translates all RDF URIs into internal integer IDs for tensor math.
 # We must load both the entity mapping (nodes) and relation mapping (edges).
 entity_to_id = {}
-with gzip.open(os.path.join(RUN_DIR, "training_triples", "entity_to_id.tsv.gz"), "rt", encoding="utf-8") as f:
+with gzip.open(os.path.join(LATEST_RUN_DIR, "training_triples", "entity_to_id.tsv.gz"), "rt", encoding="utf-8") as f:
     next(f)
     for line in f:
         e_id, e_uri = line.strip().split("\t")
         entity_to_id[e_uri] = int(e_id)
 
 relation_to_id = {}
-with gzip.open(os.path.join(RUN_DIR, "training_triples", "relation_to_id.tsv.gz"), "rt", encoding="utf-8") as f:
+with gzip.open(os.path.join(LATEST_RUN_DIR, "training_triples", "relation_to_id.tsv.gz"), "rt", encoding="utf-8") as f:
     next(f)
     for line in f:
         r_id, r_uri = line.strip().split("\t")
