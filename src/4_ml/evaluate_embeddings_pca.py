@@ -10,6 +10,7 @@ by analyzing their vector representations. It performs two main tasks:
 
 import gzip
 import os
+import glob
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -28,13 +29,16 @@ KG_PATH = os.path.join(PROJECT_ROOT, "src", "3_logic", "inferred_vienna_kg.ttl")
 RESULTS_DIR = os.path.join(SCRIPT_DIR, "results")
 
 # Manual Override: Hardcode a specific run to ensure reproducibility for the evaluation plots.
-MANUAL_RUN_NAME = "run_20261007_070839_RotatE_dim128"
-RUN_DIR = os.path.join(RESULTS_DIR, MANUAL_RUN_NAME)
+# MANUAL_RUN_NAME = "run_20261007_070839_RotatE_dim128"
+valid_dirs = [d for d in glob.glob(os.path.join(RESULTS_DIR, "run_*")) 
+              if os.path.exists(os.path.join(d, "trained_model.pkl"))]
 
-if not os.path.exists(RUN_DIR):
-    raise FileNotFoundError(f"Directory not found: {RUN_DIR}")
+if not valid_dirs:
+    raise FileNotFoundError("No valid run directory with trained_model.pkl found in results!")
 
-print(f"Loading model from: {os.path.basename(RUN_DIR)}")
+LATEST_RUN_DIR = max(valid_dirs, key=os.path.getctime)
+
+print(f"Loading model from: {os.path.basename(LATEST_RUN_DIR)}")
 
 # Parse Knowledge Graph to extract human-readable labels for our entities
 print("Parsing Knowledge Graph...")
@@ -43,13 +47,13 @@ g.parse(KG_PATH, format="turtle")
 
 # Load the trained PyTorch KGE model into memory
 model = torch.load(
-    os.path.join(RUN_DIR, "trained_model.pkl"), weights_only=False
+    os.path.join(LATEST_RUN_DIR, "trained_model.pkl"), weights_only=False
 )
 
 # Load the entity-to-ID mapping to query specific vectors from the model
 entity_to_id = {}
 mapping_path = os.path.join(
-    RUN_DIR, "training_triples", "entity_to_id.tsv.gz"
+    LATEST_RUN_DIR, "training_triples", "entity_to_id.tsv.gz"
 )
 
 with gzip.open(mapping_path, "rt", encoding="utf-8") as f:
@@ -237,7 +241,7 @@ if len(X) >= 2:
     plt.legend(loc="best", fontsize=9, title="Entity Group")
 
     # Save the output image inside the active model run directory
-    plot_path = os.path.join(RUN_DIR, "extended_similarity_pca_clean.png")
+    plot_path = os.path.join(LATEST_RUN_DIR, "extended_similarity_pca_clean.png")
     plt.savefig(plot_path, dpi=300, bbox_inches="tight")
     print(f"Clean PCA plot saved to: {plot_path}")
     
