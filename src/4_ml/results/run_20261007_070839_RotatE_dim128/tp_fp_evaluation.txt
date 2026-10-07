@@ -1,0 +1,17 @@
+=== LINK PREDICTION EVALUATION FOR flat_gen_65 (ex:isNearStop) ===
+
+1. TRUE POSITIVE LINK PREDICTION:
+   Head (Flat): http://vienna-realestate.org/kg/flat_gen_65
+   Relation:   http://vienna-realestate.org/kg/isNearStop
+   Tail (Stop): http://vienna-realestate.org/kg/stop_at_49_384_0_6
+   Model Prediction Score: -5.2376
+   Explanation: High prediction score and the edge actually exists in the KG.
+
+2. FALSE POSITIVE LINK PREDICTION:
+   Head (Flat): http://vienna-realestate.org/kg/flat_gen_65
+   Relation:   http://vienna-realestate.org/kg/isNearStop
+   Tail (Stop): http://vienna-realestate.org/kg/stop_at_49_1058_0_12
+   Model Prediction Score: -8.6779
+   Explanation: High prediction score, but the edge DOES NOT exist in the real KG.
+
+-----------------------------------------------------------------

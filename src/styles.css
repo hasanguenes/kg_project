@@ -1,0 +1,13 @@
+@import "tailwindcss/base";
+@import "tailwindcss/components";
+@import "tailwindcss/utilities";
+
+.icon-stationen {
+  background-image: url('/2_construction/assets/stationen.png');
+  background-size: contain;
+}
+
+.icon-unterkunft {
+  background-image: url('/2_construction/assets/unterkunft.png');
+  background-size: contain;
+}
