@@ -70,6 +70,6 @@ print(f" - MAE: {mean_absolute_error(y_test, preds_test):.2f} EUR")
 print(f" - R2 Score: {r2_score(y_test, preds_test):.4f}")
 
 # Save the regressor model inside the run directory
-model_output_path = os.path.join(RUN_DIR, "price_regressor_.pkl")
+model_output_path = os.path.join(RUN_DIR, "price_regressor.pkl")
 joblib.dump(regressor, model_output_path)
 print(f"\nRegressor successfully saved to:\n{model_output_path}")
