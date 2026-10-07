@@ -58,7 +58,6 @@ env/
 
 data/
 *.csv
-*.json
 *.ttl
 models/
 *.pt
