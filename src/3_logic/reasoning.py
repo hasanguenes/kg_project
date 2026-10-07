@@ -23,7 +23,7 @@ INPUT_TTL_PATH = os.path.join(
     PROJECT_ROOT, "src", "2_construction", "vienna_kg.ttl"
 )
 OUTPUT_TTL_PATH = os.path.join(
-    PROJECT_ROOT, "src", "3_logic", "inferred_vienna_kg_2.ttl"
+    PROJECT_ROOT, "src", "3_logic", "inferred_vienna_kg.ttl"
 )
 
 

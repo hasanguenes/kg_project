@@ -93,7 +93,7 @@ g.bind("xsd", XSD)
 # Step 3: Load Transit Stops
 # ==============================================================================
 step_start = time.time()
-stops_path = "assets/data/wienerlinien/stops.txt"
+stops_path = "src/2_construction/assets/data/wienerlinien/stops.txt"
 print(f"[{time.strftime('%H:%M:%S')}] Loading transit stops from {stops_path}...")
 
 # List to keep track of loaded stops for later spatial joins (e.g., connecting flats)
@@ -146,7 +146,7 @@ print(
 # node. This allows us to attach properties to the edge itself, such as the 
 # average travel time between the two stops.
 step_start = time.time()
-stop_times_path = "assets/data/wienerlinien/stop_times.txt"
+stop_times_path = "src/2_construction/assets/data/wienerlinien/stop_times.txt"
 print(
     f"[{time.strftime('%H:%M:%S')}] Connecting stops with Reification using"
     f" {stop_times_path}..."
@@ -357,7 +357,7 @@ print(
 # Step 5: Load Flats and spatially link them to nearby transit stops
 # ==============================================================================
 step_start = time.time()
-flats_path = "assets/data/flat_info.json"
+flats_path = "src/2_construction/assets/data/flat_info.json"
 print(f"[{time.strftime('%H:%M:%S')}] Loading flats from {flats_path}...")
 
 with open(flats_path, mode="r", encoding="utf-8") as file:
@@ -465,7 +465,7 @@ print(
 # Step 6: Serialization
 # ==============================================================================
 step_start = time.time()
-output_ttl = "vienna_kg.ttl"
+output_ttl = "src/2_construction/vienna_kg.ttl"
 print(
     f"[{time.strftime('%H:%M:%S')}] Serializing Knowledge Graph to"
     f" {output_ttl}..."
